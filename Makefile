@@ -29,7 +29,7 @@ CFLAGS += -MMD -MP -O3
 LDFLAGS += $(AFLAGS) -fno-builtin -nostdlib -nostartfiles -Xlinker -Map=$(APP_BUILD_DIR)/$(APP_NAME).map
 
 # FIXME: -lg should be replaced by local malloc/free
-LD_LIBS += -lusb -lstd 
+LD_LIBS += -ldfu -lusb -lstd 
 
 EXTRA_LDFLAGS ?= -Tdfuusb.fw1.ld
 LDFLAGS += $(EXTRA_LDFLAGS) -L$(APP_BUILD_DIR)

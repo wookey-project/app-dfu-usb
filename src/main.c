@@ -9,6 +9,7 @@
 #include "api/print.h"
 #include "wookey_ipc.h"
 #include "usb.h"
+#include "dfu.h"
 #include "usb_control.h"
 #include "api/malloc.h"
 
@@ -54,6 +55,10 @@ int _main(uint32_t task_id)
 
     ret = sys_init(INIT_GETTASKID, "dfucrypto", &id_dfucrypto);
     printf("dfucrypto is task %x !\n", id_dfucrypto);
+
+
+    /* early init DFU stack */
+    dfu_early_init();
 
     /*********************************************
      * Declaring DMA Shared Memory with Crypto
@@ -181,6 +186,7 @@ int _main(uint32_t task_id)
     /*******************************************
      * End of init sequence, let's initialize devices
      *******************************************/
+    dfu_init();
 
 
 
@@ -192,6 +198,9 @@ int _main(uint32_t task_id)
 
 
     while (1) {
+        /* treating potential DFU events */
+        dfu_loop();
+        /* sleep while no external event arrise */
         sys_yield();
     }
     /* should return to do_endoftask() */
