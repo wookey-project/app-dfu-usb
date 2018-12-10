@@ -29,7 +29,16 @@ void tim_handler(uint8_t irq)
 
 #define USB_BUF_SIZE 4096
 
-uint8_t usb_buf[USB_BUF_SIZE] = { 0 };
+static uint8_t usb_buf[USB_BUF_SIZE] = { 0 };
+
+
+static uint8_t id_dfucrypto = 0;
+
+
+uint8_t get_dfucrypto_id(void)
+{
+    return id_dfucrypto;
+}
 
 /*
  * We use the local -fno-stack-protector flag for main because
@@ -40,7 +49,6 @@ int _main(uint32_t task_id)
 //    const char * test = "hello, I'm usb\n";
     volatile e_syscall_ret ret = 0;
 //    uint32_t size = 256;
-    uint8_t id_dfucrypto = 0;
     uint8_t id;
 
     struct sync_command      ipc_sync_cmd;
@@ -187,7 +195,7 @@ int _main(uint32_t task_id)
     /*******************************************
      * End of init sequence, let's initialize devices
      *******************************************/
-    dfu_init(dfu_handler_write, dfu_handler_read);
+    dfu_init(dfu_handler_write, dfu_handler_read, (uint8_t**)&usb_buf, USB_BUF_SIZE);
 
 
     /*******************************************
