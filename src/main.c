@@ -10,6 +10,7 @@
 #include "wookey_ipc.h"
 #include "usb.h"
 #include "dfu.h"
+#include "handlers.h"
 #include "usb_control.h"
 #include "api/malloc.h"
 
@@ -186,8 +187,7 @@ int _main(uint32_t task_id)
     /*******************************************
      * End of init sequence, let's initialize devices
      *******************************************/
-    dfu_init();
-
+    dfu_init(dfu_handler_write, dfu_handler_read);
 
 
     /*******************************************
