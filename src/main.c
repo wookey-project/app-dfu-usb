@@ -204,13 +204,28 @@ int _main(uint32_t task_id)
 
     printf("USB main loop starting\n");
 
+    struct dataplane_command dataplane_command_ack;
+    id = id_dfucrypto;
+    size = sizeof(struct dataplane_command);
+
 
     while (1) {
-        /* treating potential DFU events */
-        dfu_loop();
+        /* detecting end of store (if a previous store request has been
+         * executed by the store handler. This is an asyncrhonous end of
+         * store management
+         */
+        if ((sys_ipc(IPC_RECV_ASYNC, &id, &size, (char*)&dataplane_command_ack)) == SYS_E_DONE) {
+            // received IPC from Crypto... By now, it is only an acknowledge
+            if (dataplane_command_ack.magic == MAGIC_DATA_WR_DMA_ACK) {
+                dfu_store_finished();
+            }
+        }
+        /* executing the DFU automaton */
+        dfu_exec_automaton();
         /* sleep while no external event arrise */
-        sys_yield();
+        //sys_yield();
     }
+
     /* should return to do_endoftask() */
     return 0;
 }
