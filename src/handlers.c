@@ -20,7 +20,7 @@ uint8_t dfu_handler_write(uint8_t ** volatile data, uint16_t data_size)
     struct dataplane_command dataplane_command_rw;
     struct dataplane_command dataplane_command_ack;
     uint8_t id;
-    uint16_t size;
+    logsize_t size;
 
     dataplane_command_rw.magic = MAGIC_DATA_WR_DMA_REQ;
     dataplane_command_rw.num_sectors = block_num++;
