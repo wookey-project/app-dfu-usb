@@ -172,7 +172,7 @@ int _main(uint32_t task_id)
     } while (ret == SYS_E_BUSY);
 
     // take some time to finish all sync ipc...
-    sys_sleep(2000, SLEEP_MODE_INTERRUPTIBLE);
+    sys_sleep(1000, SLEEP_MODE_INTERRUPTIBLE);
 
     /*******************************************
      * Sharing DMA SHM address and size with dfucrypto
