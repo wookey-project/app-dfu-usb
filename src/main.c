@@ -229,9 +229,3 @@ int _main(uint32_t task_id)
     /* should return to do_endoftask() */
     return 0;
 }
-
-/* this is the uart IRQ handler for UART implem */
-static void my_irq_handler(void)
-{
-
-}
