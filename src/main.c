@@ -35,6 +35,7 @@ static uint8_t usb_buf[USB_BUF_SIZE] = { 0 };
 static uint8_t id_dfucrypto = 0;
 
 
+
 uint8_t get_dfucrypto_id(void)
 {
     return id_dfucrypto;
