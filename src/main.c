@@ -195,7 +195,7 @@ int _main(uint32_t task_id)
     /*******************************************
      * End of init sequence, let's initialize devices
      *******************************************/
-    dfu_init();
+    dfu_init(dfu_handler_write, dfu_handler_read, (uint8_t**)&usb_buf, USB_BUF_SIZE);
 
 
     /*******************************************
