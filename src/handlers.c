@@ -7,7 +7,7 @@
 
 #include "crc32.h"
 
-#define DFU_USB_DEBUG 0
+#define DFU_USB_DEBUG 1
 #define CRC 0
 
 #if CRC
@@ -53,10 +53,19 @@ uint8_t dfu_handler_write(uint8_t ** volatile data, const uint16_t data_size __a
 
 uint8_t dfu_handler_read(uint8_t *data, uint16_t data_size)
 {
+    struct dataplane_command dataplane_command_rw;
 #if DFU_USB_DEBUG
     printf("reading data (@: %x) size: %x from flash\n", data, data_size);
 #endif
     data = data;
     data_size = data_size;
+
+    dataplane_command_rw.magic = MAGIC_DATA_RD_DMA_REQ;
+    dataplane_command_rw.num_sectors = block_num++;
+// fixme no field for DFU... ?    dataplane_command_rw.sector_size = data_size;
+
+    sys_ipc(IPC_SEND_SYNC, get_dfucrypto_id(), sizeof(struct dataplane_command), (char*)&dataplane_command_rw);
+
+
     return 0;
 }

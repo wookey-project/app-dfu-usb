@@ -219,12 +219,13 @@ int _main(uint32_t task_id)
             // received IPC from Crypto... By now, it is only an acknowledge
             if (dataplane_command_ack.magic == MAGIC_DATA_WR_DMA_ACK) {
                 dfu_store_finished();
+            } else if (dataplane_command_ack.magic == MAGIC_DATA_RD_DMA_ACK) {
+                dfu_load_finished();
             }
         }
+
         /* executing the DFU automaton */
         dfu_exec_automaton();
-        /* sleep while no external event arrise */
-        //sys_yield();
     }
 
     /* should return to do_endoftask() */
