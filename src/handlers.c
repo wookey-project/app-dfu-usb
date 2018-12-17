@@ -7,7 +7,7 @@
 
 #include "crc32.h"
 
-#define DFU_USB_DEBUG 1
+#define DFU_USB_DEBUG 0
 #define CRC 0
 
 #if CRC
@@ -18,9 +18,8 @@ static uint32_t crc32_buf = 0xffffffff;
  * in the DFU protocol. This information specifies the chunk identifier of the file, from
  * which the position in the flash (and the associated IV) can be calculated.
  */
-static uint32_t block_num = 0;
 
-uint8_t dfu_handler_write(uint8_t ** volatile data, const uint16_t data_size __attribute__((unused)))
+uint8_t dfu_handler_write(uint8_t ** volatile data, const uint16_t data_size, uint16_t blocknum)
 {
 #if DFU_USB_DEBUG
     printf("writing data (@: %x) size: %d in flash\n", data, data_size);
@@ -40,13 +39,16 @@ uint8_t dfu_handler_write(uint8_t ** volatile data, const uint16_t data_size __a
     }
 #endif
 
-    struct dataplane_command dataplane_command_rw;
+    struct sync_command_data sync_command_rw;
 
-    dataplane_command_rw.magic = MAGIC_DATA_WR_DMA_REQ;
-    dataplane_command_rw.num_sectors = block_num++;
-// fixme no field for DFU... ?    dataplane_command_rw.sector_size = data_size;
+    sync_command_rw.magic = MAGIC_DATA_WR_DMA_REQ;
+    sync_command_rw.state = SYNC_ASK_FOR_DATA;
+    sync_command_rw.data_size = 2;
+    sync_command_rw.data.u16[0] = data_size;
+    sync_command_rw.data.u16[1] = blocknum;
+// fixme no field for DFU... ?    sync_command_rw.sector_size = data_size;
 
-    sys_ipc(IPC_SEND_SYNC, get_dfucrypto_id(), sizeof(struct dataplane_command), (char*)&dataplane_command_rw);
+    sys_ipc(IPC_SEND_SYNC, get_dfucrypto_id(), sizeof(struct sync_command_data), (char*)&sync_command_rw);
 
     return 0;
 }
@@ -54,7 +56,7 @@ uint8_t dfu_handler_write(uint8_t ** volatile data, const uint16_t data_size __a
 uint32_t flash_block = 0;
 uint8_t dfu_handler_read(uint8_t *data, uint16_t data_size)
 {
-    struct dataplane_command dataplane_command_rw;
+    struct sync_command_data sync_command_rw;
 #if DFU_USB_DEBUG
     printf("reading data (@: %x) size: %d from flash\n", data, data_size);
 #endif
@@ -63,11 +65,13 @@ uint8_t dfu_handler_read(uint8_t *data, uint16_t data_size)
 
     memset(data, flash_block, data_size);
     flash_block++;
-    dataplane_command_rw.magic = MAGIC_DATA_RD_DMA_REQ;
-    dataplane_command_rw.num_sectors = block_num++;
-// fixme no field for DFU... ?    dataplane_command_rw.sector_size = data_size;
+    sync_command_rw.magic = MAGIC_DATA_RD_DMA_REQ;
+    sync_command_rw.state = SYNC_ASK_FOR_DATA;
+    sync_command_rw.data_size = 1;
+    sync_command_rw.data.u16[0] = data_size;
+// fixme no field for DFU... ?    sync_command_rw.sector_size = data_size;
 
-    sys_ipc(IPC_SEND_SYNC, get_dfucrypto_id(), sizeof(struct dataplane_command), (char*)&dataplane_command_rw);
+    sys_ipc(IPC_SEND_SYNC, get_dfucrypto_id(), sizeof(struct sync_command_data), (char*)&sync_command_rw);
 
 
     return 0;

@@ -205,9 +205,9 @@ int _main(uint32_t task_id)
 
     printf("USB main loop starting\n");
 
-    struct dataplane_command dataplane_command_ack;
+    struct sync_command_data sync_command_ack = { 0 };
     id = id_dfucrypto;
-    size = sizeof(struct dataplane_command);
+    size = sizeof(struct sync_command_data);
 
 
     while (1) {
@@ -215,12 +215,14 @@ int _main(uint32_t task_id)
          * executed by the store handler. This is an asyncrhonous end of
          * store management
          */
-        if ((sys_ipc(IPC_RECV_ASYNC, &id, &size, (char*)&dataplane_command_ack)) == SYS_E_DONE) {
+        if ((sys_ipc(IPC_RECV_ASYNC, &id, &size, (char*)&sync_command_ack)) == SYS_E_DONE) {
             // received IPC from Crypto... By now, it is only an acknowledge
-            if (dataplane_command_ack.magic == MAGIC_DATA_WR_DMA_ACK) {
+            if (sync_command_ack.magic == MAGIC_DATA_WR_DMA_ACK) {
                 dfu_store_finished();
-            } else if (dataplane_command_ack.magic == MAGIC_DATA_RD_DMA_ACK) {
-                dfu_load_finished();
+            } else if (sync_command_ack.magic == MAGIC_DATA_RD_DMA_ACK) {
+                /* when acknowledging read from flash, getting back number of bytes read */
+                uint16_t bytes_read = sync_command_ack.data.u16[0];
+                dfu_load_finished(bytes_read);
             }
         }
 
