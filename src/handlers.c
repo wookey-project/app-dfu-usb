@@ -23,7 +23,7 @@ static uint32_t block_num = 0;
 uint8_t dfu_handler_write(uint8_t ** volatile data, const uint16_t data_size __attribute__((unused)))
 {
 #if DFU_USB_DEBUG
-    printf("writing data (@: %x) size: %x in flash\n", data, data_size);
+    printf("writing data (@: %x) size: %d in flash\n", data, data_size);
 #endif
     data = data;
 
@@ -51,15 +51,18 @@ uint8_t dfu_handler_write(uint8_t ** volatile data, const uint16_t data_size __a
     return 0;
 }
 
+uint32_t flash_block = 0;
 uint8_t dfu_handler_read(uint8_t *data, uint16_t data_size)
 {
     struct dataplane_command dataplane_command_rw;
 #if DFU_USB_DEBUG
-    printf("reading data (@: %x) size: %x from flash\n", data, data_size);
+    printf("reading data (@: %x) size: %d from flash\n", data, data_size);
 #endif
     data = data;
     data_size = data_size;
 
+    memset(data, flash_block, data_size);
+    flash_block++;
     dataplane_command_rw.magic = MAGIC_DATA_RD_DMA_REQ;
     dataplane_command_rw.num_sectors = block_num++;
 // fixme no field for DFU... ?    dataplane_command_rw.sector_size = data_size;
