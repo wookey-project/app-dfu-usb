@@ -11,6 +11,7 @@
 #include "usb.h"
 #include "dfu.h"
 #include "handlers.h"
+#include "main.h"
 #include "usb_control.h"
 #include "api/malloc.h"
 
@@ -20,6 +21,19 @@ char buffer_out[16] = "[five guys!   ]\0";
 char buffer_in[16] = "               \0";
 
 uint32_t num_tim = 0;
+
+volatile t_dfuusb_state current_state = DFUUSB_STATE_IDLE;
+
+t_dfuusb_state get_task_state(void)
+{
+    return current_state;
+}
+
+void set_task_state(t_dfuusb_state state)
+{
+    current_state = state;
+}
+
 
 void tim_handler(uint8_t irq)
 {
@@ -209,6 +223,8 @@ int _main(uint32_t task_id)
     id = id_dfucrypto;
     size = sizeof(struct sync_command_data);
 
+    /* end of initialization, starting main loop */
+    set_task_state(DFUUSB_STATE_IDLE);
 
     while (1) {
         /* detecting end of store (if a previous store request has been
