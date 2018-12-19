@@ -231,14 +231,40 @@ int _main(uint32_t task_id)
          * executed by the store handler. This is an asyncrhonous end of
          * store management
          */
+        
         if ((sys_ipc(IPC_RECV_ASYNC, &id, &size, (char*)&sync_command_ack)) == SYS_E_DONE) {
-            // received IPC from Crypto... By now, it is only an acknowledge
-            if (sync_command_ack.magic == MAGIC_DATA_WR_DMA_ACK) {
-                dfu_store_finished();
-            } else if (sync_command_ack.magic == MAGIC_DATA_RD_DMA_ACK) {
-                /* when acknowledging read from flash, getting back number of bytes read */
-                uint16_t bytes_read = sync_command_ack.data.u16[0];
-                dfu_load_finished(bytes_read);
+            switch (sync_command_ack.magic) {
+                case MAGIC_DATA_WR_DMA_ACK:
+                {
+                    dfu_store_finished();
+                    break;
+                }
+                case MAGIC_DATA_RD_DMA_ACK:
+                {
+                    uint16_t bytes_read = sync_command_ack.data.u16[0];
+                    dfu_load_finished(bytes_read);
+                    break;
+                }
+                case MAGIC_DFU_HEADER_VALID:
+                {
+                    set_task_state(DFUUSB_STATE_DWNLOAD);
+                    /* FIXME: real header length should be passed in arg */
+                    dfu_handler_post_auth();
+                    break;
+                }
+                case MAGIC_DFU_HEADER_INVALID:
+                {
+                    /* error !*/
+                    printf("Error ! Invalid header ! refusing to continue update\n");
+                    set_task_state(DFUUSB_STATE_ERROR);
+                    break;
+                }
+                default:
+                {
+                    printf("Error! unknown IPC magic received: %x\n", sync_command_ack.magic);
+                    set_task_state(DFUUSB_STATE_ERROR);
+                    break;
+                }
             }
         }
 
