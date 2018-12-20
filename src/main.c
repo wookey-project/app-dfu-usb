@@ -266,6 +266,8 @@ int _main(uint32_t task_id)
                     break;
                 }
             }
+        } else {
+            sys_sleep(10, SLEEP_MODE_INTERRUPTIBLE);
         }
 
         /* executing the DFU automaton */
