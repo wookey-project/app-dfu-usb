@@ -15,31 +15,6 @@
 #include "usb_control.h"
 #include "api/malloc.h"
 
-static void my_irq_handler(void);
-
-char buffer_out[16] = "[five guys!   ]\0";
-char buffer_in[16] = "               \0";
-
-uint32_t num_tim = 0;
-
-volatile t_dfuusb_state current_state = DFUUSB_STATE_IDLE;
-
-t_dfuusb_state get_task_state(void)
-{
-    return current_state;
-}
-
-void set_task_state(t_dfuusb_state state)
-{
-    current_state = state;
-}
-
-
-void tim_handler(uint8_t irq)
-{
-    irq = irq;
-    num_tim++;
-}
 
 #define USB_BUF_SIZE 4096
 

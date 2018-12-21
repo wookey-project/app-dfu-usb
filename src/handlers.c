@@ -4,71 +4,19 @@
 #include "api/syscall.h"
 #include "wookey_ipc.h"
 #include "main.h"
-
-#include "crc32.h"
+#include "libfw.h"
+#include "dfu.h"
 
 #define DFU_HEADER_LEN 256
 
-#define DFU_USB_DEBUG 0
+#define DFU_USB_DEBUG 1
 #define CRC 0
 
-typedef struct __packed {
-	uint32_t magic;
-	uint32_t type;
-	uint32_t version;
-	uint32_t len;
-	uint32_t siglen;
-	uint32_t chunksize;
-	uint8_t iv[16];
-	uint8_t hmac[32];
-	/* The signature goes here ... with a siglen length */
-} dfu_update_header_t;
-
-
-#if DFU_USB_DEBUG
-void dfu_print_header(dfu_update_header_t *header){
-	if(header == NULL){
-		return;
-	}
-	printf("MAGIC = %x\n",header->magic);
-	printf("\nTYPE  = %x", header->type);
-	printf("\nVERSION = %x", header->version);
-	printf("\nLEN = %x", header->len);
-	printf("\nSIGLEN = %x", header->siglen);
-	printf("\nCHUNKSIZE = %x", header->chunksize);	
-	printf("\nIV = ");
-	hexdump((unsigned char*)&(header->iv), 16);
-	printf("\nHMAC = ");
-	hexdump((unsigned char*)&(header->hmac), 16);
-}
-#endif
-
-
-#if CRC
-static uint32_t crc32_buf = 0xffffffff;
-#endif
-
-#if CRC
-static inline check_crc(uint8_t *buf, uint16_t data_size)
-{
-    int size = data_size;
-    crc32_buf = crc32((unsigned char*)buf, size, crc32_buf);
-    printf("buf: %x, bufsize: %d, crc32: %x\n", buf, data_size, ~crc32_buf);
-    printf("buf[0-3]: %x %x %x %x\n", buf[0], buf[1], buf[2], buf[3]);
-    if (data_size > 16) {
-        printf("buf[%d-%d]: %x %x %x %x\n",
-                data_size - 4, data_size,
-                buf[data_size - 4], buf[data_size - 3], buf[data_size - 2], buf[data_size - 1]);
-    }
-}
-#endif
-
-
 /* this is the DFU header than need to be sent to SMART for verification */
-static char dfu_header[DFU_HEADER_LEN] = { 0 };
+static uint8_t dfu_header[DFU_HEADER_LEN] = { 0 };
 
 /* when starting, dfu_header is empty, waiting for the host to send it */
-static uint8_t current_header_offset = 0;
+static uint16_t current_header_offset = 0;
 
 static uint16_t current_data_size = 0;
 static uint16_t current_blocknum = 0;
@@ -82,7 +30,7 @@ static inline void dfu_init_header_authentication(void)
 
 #if DFU_USB_DEBUG
     printf("printing header before sending...\n");
-    dfu_print_header((dfu_update_header_t *)dfu_header);
+    firmware_print_header((firmware_header_t *)dfu_header);
     printf("end of header printing...\n");
 #endif
     do {
@@ -154,6 +102,34 @@ uint8_t dfu_handler_post_auth(void)
  
 }
 
+static volatile bool header_full = false;
+
+static volatile uint32_t bytes_received = 0;
+
+bool first_chunk_received(void)
+{
+    /* cryptographic chunks must be at least of the same size
+     * as the firmware header, as this header contains the size
+     * of the cryptographic chunk we need to parse. By default,
+     * while this header is not yet fully read from USB, we
+     * consider that the first cryptographic chunk is *not*
+     * fully received */
+    if (!header_full) {
+        return false;
+    }
+    firmware_header_t header;
+    firmware_parse_header(dfu_header, DFU_HEADER_LEN, 0, &header, NULL);
+    if (bytes_received >= header.chunksize) {
+#if DFU_USB_DEBUG
+        printf("first crypto chunk received ! bytes read: %x\n", bytes_received);
+#endif
+        return true;
+    }
+#if DFU_USB_DEBUG
+    printf("first crypto chunk not received ! bytes read: %x\n", bytes_received);
+#endif
+    return false;
+}
 
 uint8_t dfu_handler_write(uint8_t ** volatile data,
                           const uint16_t      data_size,
@@ -164,8 +140,10 @@ uint8_t dfu_handler_write(uint8_t ** volatile data,
     current_data_size = data_size;
     current_blocknum  = blocknum;
 
+    bytes_received += data_size;
+
 #if DFU_USB_DEBUG
-    printf("writing data (@: %x) size: %d in flash\n", data, data_size);
+//    printf("writing data (@: %x) size: %d in flash\n", data, data_size);
 #endif
 
 #if CRC
@@ -178,14 +156,22 @@ uint8_t dfu_handler_write(uint8_t ** volatile data,
             if (data_size >= DFU_HEADER_LEN) {
                 /* header has been sent in one time */
                 memcpy(dfu_header, (uint8_t*)data, DFU_HEADER_LEN);
-                set_task_state(DFUUSB_STATE_AUTH);
+                header_full = true;
                 /* asking smart for header authentication */
-                dfu_init_header_authentication();
+                if (first_chunk_received()) {
+                    set_task_state(DFUUSB_STATE_AUTH);
+                    dfu_init_header_authentication();
+                } else {
+                    /* going to GETHEADER to finish crypto chunk reception */
+                    set_task_state(DFUUSB_STATE_GETHEADER);
+                    dfu_store_finished();
+                }
             } else {
                 /* header must be generated with multiple chunks */
                 memcpy(dfu_header, (uint8_t*)data, data_size);
                 current_header_offset += data_size;
                 set_task_state(DFUUSB_STATE_GETHEADER);
+                dfu_store_finished();
                 /* continuing during next call... */
             }
             break;
@@ -202,14 +188,22 @@ uint8_t dfu_handler_write(uint8_t ** volatile data,
              */
             if (data_size >= DFU_HEADER_LEN - (current_header_offset)) {
                 /* enough bytes received to fullfill the header */
-                memcpy(&dfu_header[current_header_offset], (uint8_t*)data, DFU_HEADER_LEN - current_header_offset);
-                set_task_state(DFUUSB_STATE_AUTH);
-                dfu_init_header_authentication();
-
+                if (!header_full) {
+                    memcpy(&dfu_header[current_header_offset], (uint8_t*)data, DFU_HEADER_LEN - current_header_offset);
+                    current_header_offset += DFU_HEADER_LEN - current_header_offset;
+                    header_full = true;
+                    dfu_store_finished();
+                }
+                if (first_chunk_received()) {
+                    set_task_state(DFUUSB_STATE_AUTH);
+                    dfu_init_header_authentication();
+                } else {
+                    dfu_store_finished();
+                }
             } else {
-                /* */
                 memcpy(&dfu_header[current_header_offset], (uint8_t*)data, data_size);
                 current_header_offset += data_size;
+                dfu_store_finished();
                 /* continuing during next call... */
             }
             break;
