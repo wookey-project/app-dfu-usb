@@ -66,42 +66,6 @@ static inline void dfu_init_header_authentication(void)
 }
 
 
-/*
- * This handler is called when smart has finished its check of the firmware
- * header. Depending on the result, it may lead to continuing the download or
- * to an error state (invalid header)
- */
-uint8_t dfu_handler_post_auth(void)
-{
-    struct sync_command_data sync_command_rw;
-    /* if authentication ok and there is still data in the buffer,
-     * request its copy to flash */
-    if ((current_data_size + current_header_offset) > DFU_HEADER_LEN) {
-        /* enough bytes received to fullfill the header */
-        /* FIXME: before requesting DMA copy, the buffer content
-         * MUST be moved to the buffer start, deleting the header
-         * from the buffer, as the DMA can't change its 
-         * copy start-address !!! */
-
-        /* sending DMA request for the whole buffer to Crypto */
-        sync_command_rw.magic = MAGIC_DATA_WR_DMA_REQ;
-        sync_command_rw.state = SYNC_ASK_FOR_DATA;
-        sync_command_rw.data_size = 2;
-        /* FIXME: residual size to be calculated */
-        sync_command_rw.data.u16[0] = current_data_size - (DFU_HEADER_LEN - current_header_offset);
-        sync_command_rw.data.u16[1] = current_blocknum;
-
-        sys_ipc(IPC_SEND_SYNC, get_dfucrypto_id(),
-                sizeof(struct sync_command_data),
-                (char*)&sync_command_rw);
-
-        /* reinit for next download */
-        current_header_offset = 0;
-    }
-    return 0;
- 
-}
-
 static volatile bool header_full = false;
 
 static volatile uint32_t bytes_received = 0;
@@ -130,6 +94,8 @@ bool first_chunk_received(void)
 #endif
     return false;
 }
+
+uint32_t buffer_count = 0;
 
 uint8_t dfu_handler_write(uint8_t ** volatile data,
                           const uint16_t      data_size,
@@ -210,6 +176,12 @@ uint8_t dfu_handler_write(uint8_t ** volatile data,
         }
         case DFUUSB_STATE_DWNLOAD:
         {
+
+            if (buffer_count < 2) {
+                printf("received buffer (4 start, 4 end)\n");
+                hexdump((uint8_t*)data, 4);
+                hexdump((uint8_t*)data+data_size-4, 4);
+            }
             /* sending DMA request for the whole buffer to Crypto */
             sync_command_rw.magic = MAGIC_DATA_WR_DMA_REQ;
             sync_command_rw.state = SYNC_ASK_FOR_DATA;
@@ -221,6 +193,7 @@ uint8_t dfu_handler_write(uint8_t ** volatile data,
                     sizeof(struct sync_command_data),
                     (char*)&sync_command_rw);
 
+            buffer_count++;
             break;
         }
         default: {

@@ -223,8 +223,8 @@ int _main(uint32_t task_id)
                 case MAGIC_DFU_HEADER_VALID:
                 {
                     set_task_state(DFUUSB_STATE_DWNLOAD);
+                    dfu_store_finished();
                     /* FIXME: real header length should be passed in arg */
-                    dfu_handler_post_auth();
                     break;
                 }
                 case MAGIC_DFU_HEADER_INVALID:
