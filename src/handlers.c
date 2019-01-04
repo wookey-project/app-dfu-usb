@@ -95,7 +95,6 @@ bool first_chunk_received(void)
     return false;
 }
 
-uint32_t buffer_count = 0;
 
 uint8_t dfu_handler_write(uint8_t ** volatile data,
                           const uint16_t      data_size,
@@ -176,12 +175,6 @@ uint8_t dfu_handler_write(uint8_t ** volatile data,
         }
         case DFUUSB_STATE_DWNLOAD:
         {
-
-            if (buffer_count < 2) {
-                printf("received buffer (4 start, 4 end)\n");
-                hexdump((uint8_t*)data, 4);
-                hexdump((uint8_t*)data+data_size-4, 4);
-            }
             /* sending DMA request for the whole buffer to Crypto */
             sync_command_rw.magic = MAGIC_DATA_WR_DMA_REQ;
             sync_command_rw.state = SYNC_ASK_FOR_DATA;
@@ -193,7 +186,6 @@ uint8_t dfu_handler_write(uint8_t ** volatile data,
                     sizeof(struct sync_command_data),
                     (char*)&sync_command_rw);
 
-            buffer_count++;
             break;
         }
         default: {
