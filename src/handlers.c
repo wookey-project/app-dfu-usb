@@ -222,3 +222,19 @@ uint8_t dfu_handler_read(uint8_t *data, uint16_t data_size)
 
     return 0;
 }
+
+void dfu_handler_eof(void)
+{
+    struct sync_command sync_command;
+#if DFU_USB_DEBUG
+    printf("sendinf EOF to flash\n");
+#endif
+
+    sync_command.magic = MAGIC_DFU_DWNLOAD_FINISHED;
+    sync_command.state = SYNC_DONE;
+// fixme no field for DFU... ?    sync_command_rw.sector_size = data_size;
+
+    sys_ipc(IPC_SEND_SYNC, get_dfucrypto_id(), sizeof(struct sync_command), (char*)&sync_command);
+
+    return;
+}

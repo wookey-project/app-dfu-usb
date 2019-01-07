@@ -9,4 +9,6 @@ uint8_t dfu_handler_write(uint8_t ** volatile data, const uint16_t data_size, ui
 
 uint8_t dfu_handler_read(uint8_t *data, uint16_t size);
 
+void    dfu_handler_eof(void);
+
 #endif/*!DFUUSB_HANDLERS_H_*/

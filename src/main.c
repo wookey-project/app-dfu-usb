@@ -185,7 +185,7 @@ int _main(uint32_t task_id)
     /*******************************************
      * End of init sequence, let's initialize devices
      *******************************************/
-    dfu_init(dfu_handler_write, dfu_handler_read, (uint8_t**)&usb_buf, USB_BUF_SIZE);
+    dfu_init(dfu_handler_write, dfu_handler_read, dfu_handler_eof, (uint8_t**)&usb_buf, USB_BUF_SIZE);
 
 
     /*******************************************
@@ -231,6 +231,9 @@ int _main(uint32_t task_id)
                 {
                     /* error !*/
                     printf("Error ! Invalid header ! refusing to continue update\n");
+                    if (sync_command_ack.state == SYNC_BADFILE) {
+                        dfu_leave_session_with_error(ERRFILE);
+                    }
                     set_task_state(DFUUSB_STATE_ERROR);
                     break;
                 }
