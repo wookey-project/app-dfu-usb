@@ -232,9 +232,14 @@ int _main(uint32_t task_id)
                     /* error !*/
                     printf("Error ! Invalid header ! refusing to continue update\n");
                     if (sync_command_ack.state == SYNC_BADFILE) {
+                        dfu_store_finished();
                         dfu_leave_session_with_error(ERRFILE);
+                        set_task_state(DFUUSB_STATE_IDLE);
+                    } else {
+                        dfu_store_finished();
+                        dfu_leave_session_with_error(ERRFILE);
+                        set_task_state(DFUUSB_STATE_IDLE);
                     }
-                    set_task_state(DFUUSB_STATE_ERROR);
                     break;
                 }
                 default:
