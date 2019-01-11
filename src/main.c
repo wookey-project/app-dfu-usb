@@ -17,13 +17,18 @@
 
 
 #define USB_BUF_SIZE 4096
+#define DFU_USB_DEBUG 0
 
 static uint8_t usb_buf[USB_BUF_SIZE] = { 0 };
 
 
 static uint8_t id_dfucrypto = 0;
 
-
+/* DFU and crypto chunk sizes.
+ * We must have sizeof(crypto_chunk) = multiple of sizeof(DFU_chunk).
+ */
+volatile uint16_t crypto_chunk_size = 0;
+volatile uint16_t dfu_usb_chunk_size = 0;
 
 uint8_t get_dfucrypto_id(void)
 {
@@ -185,6 +190,7 @@ int _main(uint32_t task_id)
     /*******************************************
      * End of init sequence, let's initialize devices
      *******************************************/
+    dfu_usb_chunk_size = USB_BUF_SIZE;
     dfu_init(dfu_handler_write, dfu_handler_read, dfu_handler_eof, (uint8_t**)&usb_buf, USB_BUF_SIZE);
 
 
@@ -224,7 +230,25 @@ int _main(uint32_t task_id)
                 {
                     set_task_state(DFUUSB_STATE_DWNLOAD);
                     dfu_store_finished();
-                    /* FIXME: real header length should be passed in arg */
+		    /* Get the crypto header length here */
+		    if(sync_command_ack.data_size != 1){
+			 /* Wrong size */
+			 printf("Error: error during MAGIC_DFU_HEADER_VALID IPC with dfusmart ...\n");
+                   	 dfu_leave_session_with_error(ERRFILE);
+                	 set_task_state(DFUUSB_STATE_IDLE);		 
+		    }
+		    else{
+			crypto_chunk_size = sync_command_ack.data.u16[0];
+#if DFU_USB_DEBUG
+			printf("Received %d as crypto chunk size from dfusmart!\n", crypto_chunk_size);
+#endif
+			/* Sanity check */
+			if(dfu_crypto_chunk_size_sanity_check(dfu_usb_chunk_size, crypto_chunk_size)){
+  			  printf("Error: crypto chunk size %d is not a multiple of DFU chunk size %d\n", crypto_chunk_size, dfu_usb_chunk_size);
+                   	  dfu_leave_session_with_error(ERRFILE);
+                	  set_task_state(DFUUSB_STATE_IDLE);
+			}
+		    }
                     break;
                 }
                 case MAGIC_DFU_HEADER_INVALID:

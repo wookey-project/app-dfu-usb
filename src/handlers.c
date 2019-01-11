@@ -9,8 +9,10 @@
 
 #define DFU_HEADER_LEN 256
 
-#define DFU_USB_DEBUG 1
-#define CRC 0
+#define DFU_USB_DEBUG 0
+
+extern volatile uint16_t crypto_chunk_size;
+extern volatile uint16_t dfu_usb_chunk_size;
 
 /* this is the DFU header than need to be sent to SMART for verification */
 static uint8_t dfu_header[DFU_HEADER_LEN] = { 0 };
@@ -18,8 +20,48 @@ static uint8_t dfu_header[DFU_HEADER_LEN] = { 0 };
 /* when starting, dfu_header is empty, waiting for the host to send it */
 static uint16_t current_header_offset = 0;
 
-static uint16_t current_data_size = 0;
-static uint16_t current_blocknum = 0;
+static volatile uint16_t current_data_size = 0;
+static volatile uint16_t current_blocknum = 0;
+static volatile uint16_t current_crypto_block_num = 1;
+
+static volatile bool is_last_block = false;
+
+/* Sanity check that we are asked for proper pseudo-sequential crypto blocks.
+ */
+static int dnload_transfers_sanity_check(uint32_t curr_block_index, uint16_t curr_transfer_size){
+	if(dfu_crypto_chunk_size_sanity_check(dfu_usb_chunk_size, crypto_chunk_size)){
+		printf("Error: sanity check on DFU (%d) and crypto (%d) chunk sizes failed!\n", dfu_usb_chunk_size, crypto_chunk_size);
+		goto err;
+	}
+	/* There is no reason to get the header here ... */
+	uint32_t curr_block_offset = (uint32_t)curr_block_index * (uint32_t)dfu_usb_chunk_size;
+	if(curr_block_offset < (uint32_t)crypto_chunk_size){
+		printf("Error: sanity check failed, sending block %d in crypto header!\n", curr_block_index);
+		goto err;
+	} 
+	/* We have to be aligned on the dfu_usb_chunk_size except for the last transfer! */
+	if((curr_transfer_size != dfu_usb_chunk_size) && (is_last_block == true)){
+		printf("Error: sanity check on DFU (%d) and current chunk (%d) sizes failed!\n", dfu_usb_chunk_size, curr_transfer_size);
+		goto err;
+	}
+	else if(curr_transfer_size != dfu_usb_chunk_size){
+		is_last_block = true;
+	}
+	/* Check that we are asked to decrypt a dfu block inside a crypto block where we have started a decrypt session ... */
+	if(curr_block_offset % (uint32_t)crypto_chunk_size == 0){
+		current_crypto_block_num = curr_block_offset / crypto_chunk_size;
+	}
+	else{
+		if((curr_block_offset / crypto_chunk_size) != current_crypto_block_num){
+			printf("Error: sanity check on DFU block numbers failed! (current=%d, not in current decrypt session started at block %d))\n", curr_block_index, current_crypto_block_num);
+			goto err;
+		}
+	}
+
+	return 0;
+err:
+	return -1;
+}
 
 /* authenticate header with smart */
 static inline void dfu_init_header_authentication(void)
@@ -100,21 +142,31 @@ uint8_t dfu_handler_write(uint8_t ** volatile data,
                           const uint16_t      data_size,
                           uint16_t            blocknum)
 {
-    t_dfuusb_state state = get_task_state();
+    t_dfuusb_state state;
     struct sync_command_data sync_command_rw;
     current_data_size = data_size;
     current_blocknum  = blocknum;
 
-    bytes_received += data_size;
-
 #if DFU_USB_DEBUG
-//    printf("writing data (@: %x) size: %d in flash\n", data, data_size);
+    printf("writing data (block: %d) size: %d\n", blocknum, data_size);
 #endif
 
-#if CRC
-    check_crc((uint8_t*)data, data_size);
+    /* If we were in the middle of a transfer, and we receive block 0 again, this means
+     * that we have to reset our state machine.
+     */
+    if(blocknum == 0){
+#if DFU_USB_DEBUG
+        printf("DFU block 0 received, resetting state machine to IDLE\n");
 #endif
+    	bytes_received = 0;
+        /* Reinit our variable handling the possible last block */
+        is_last_block = false;
+        current_crypto_block_num = 1;
+	set_task_state(DFUUSB_STATE_IDLE);
+    }
 
+    bytes_received += data_size;
+    state = get_task_state();
     switch (state) {
         case DFUUSB_STATE_IDLE:
         {
@@ -175,12 +227,23 @@ uint8_t dfu_handler_write(uint8_t ** volatile data,
         }
         case DFUUSB_STATE_DWNLOAD:
         {
+	    /* Sanity check */
+	    if(dnload_transfers_sanity_check(blocknum, data_size)){
+		printf("Error: sanity check error when performing DFUUSB_STATE_DWNLOAD. Block %d of size %d is refused!\n", blocknum, data_size);
+		break;
+	    }
             /* sending DMA request for the whole buffer to Crypto */
             sync_command_rw.magic = MAGIC_DATA_WR_DMA_REQ;
             sync_command_rw.state = SYNC_ASK_FOR_DATA;
             sync_command_rw.data_size = 2;
             sync_command_rw.data.u16[0] = data_size;
-            sync_command_rw.data.u16[1] = blocknum;
+	    /* The block number we send is the block number where we have discarded the header */
+	    if(blocknum < (crypto_chunk_size / dfu_usb_chunk_size)){
+		/* Sanity check (even if it should have been performed earlier, better safe than sorry ...) */
+		printf("Error: sanity check error on block number %d\n", blocknum);
+		break;
+	    }
+            sync_command_rw.data.u16[1] = blocknum - (crypto_chunk_size / dfu_usb_chunk_size);
 
             sys_ipc(IPC_SEND_SYNC, get_dfucrypto_id(),
                     sizeof(struct sync_command_data),
