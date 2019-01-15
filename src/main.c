@@ -51,10 +51,6 @@ int _main(uint32_t task_id)
 
     dma_shm_t dmashm_rd;
     dma_shm_t dmashm_wr;
-#if 0
-    int i = 0;
-    uint64_t tick = 0;
-#endif
 
     printf("Hello ! I'm usb, my id is %x\n", task_id);
 
