@@ -19,7 +19,8 @@
 #define USB_BUF_SIZE 4096
 #define DFU_USB_DEBUG 0
 
-static uint8_t usb_buf[USB_BUF_SIZE] = { 0 };
+/* NOTE: alignment due to DMA */
+__attribute__((aligned(4))) static uint8_t usb_buf[USB_BUF_SIZE] = { 0 };
 
 
 static uint8_t id_dfucrypto = 0;
