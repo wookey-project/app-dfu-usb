@@ -6,6 +6,8 @@ config APP_DFUUSB
   default y
   select USR_LIB_WOOKEY
   select USR_LIB_DFU
+  select USR_LIB_FIRMWARE
+  select USR_DRV_USB
   ---help---
     Say y if you want to embbed DFUUSB custom application.
 
@@ -46,7 +48,7 @@ config APP_DFUUSB_STACKSIZE
     Specify the application stack size, in bytes. By default, set to 8192
     (i.e. 8k). Depending on the number of slots required, and the usage,
     the stack can be bigger or smaller.
-    
+
 config APP_DFUUSB_PRIO
   int "Application priority"
   default 0
