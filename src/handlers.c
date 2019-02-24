@@ -269,8 +269,6 @@ uint8_t dfu_handler_read(uint8_t *data, uint16_t data_size)
 #if DFU_USB_DEBUG
     printf("reading data (@: %x) size: %d from flash\n", data, data_size);
 #endif
-    data = data;
-    data_size = data_size;
 
     memset(data, flash_block, data_size);
     flash_block++;

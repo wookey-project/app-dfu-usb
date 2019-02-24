@@ -26,7 +26,7 @@ CFLAGS += -Isrc/ -Iinc/
 CFLAGS += $(APPS_CFLAGS)
 CFLAGS += -MMD -MP -O3
 
-LDFLAGS += $(AFLAGS) -fno-builtin -nostdlib -nostartfiles -Xlinker -Map=$(APP_BUILD_DIR)/$(APP_NAME).map
+LDFLAGS += -fno-builtin -nostdlib -nostartfiles $(AFLAGS_GCC) -Wl,-Map=$(APP_BUILD_DIR)/$(APP_NAME).map
 
 # FIXME: -lg should be replaced by local malloc/free
 LD_LIBS += -ldfu -lusb -lfirmware -lstd
