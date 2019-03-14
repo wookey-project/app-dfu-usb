@@ -1,6 +1,7 @@
 #include "handlers.h"
 #include "api/types.h"
 #include "api/print.h"
+#include "api/string.h"
 #include "api/syscall.h"
 #include "wookey_ipc.h"
 #include "main.h"
@@ -38,7 +39,7 @@ static int dnload_transfers_sanity_check(uint32_t curr_block_index, uint16_t cur
 	if(curr_block_offset < (uint32_t)crypto_chunk_size){
 		printf("Error: sanity check failed, sending block %d in crypto header!\n", curr_block_index);
 		goto err;
-	} 
+	}
 	/* We have to be aligned on the dfu_usb_chunk_size except for the last transfer! */
 	if((curr_transfer_size != dfu_usb_chunk_size) && (is_last_block == true)){
 		printf("Error: sanity check on DFU (%d) and current chunk (%d) sizes failed!\n", dfu_usb_chunk_size, curr_transfer_size);

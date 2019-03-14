@@ -7,6 +7,7 @@
 
 #include "api/syscall.h"
 #include "api/print.h"
+#include "api/string.h"
 #include "wookey_ipc.h"
 #include "usb.h"
 #include "dfu.h"
@@ -209,7 +210,7 @@ int _main(uint32_t task_id)
          * executed by the store handler. This is an asyncrhonous end of
          * store management
          */
-        
+
         if ((sys_ipc(IPC_RECV_ASYNC, &id, &size, (char*)&sync_command_ack)) == SYS_E_DONE) {
             switch (sync_command_ack.magic) {
                 case MAGIC_DATA_WR_DMA_ACK:
@@ -232,7 +233,7 @@ int _main(uint32_t task_id)
 			 /* Wrong size */
 			 printf("Error: error during MAGIC_DFU_HEADER_VALID IPC with dfusmart ...\n");
                    	 dfu_leave_session_with_error(ERRFILE);
-                	 set_task_state(DFUUSB_STATE_IDLE);		 
+                	 set_task_state(DFUUSB_STATE_IDLE);
 		    }
 		    else{
 			crypto_chunk_size = sync_command_ack.data.u16[0];
