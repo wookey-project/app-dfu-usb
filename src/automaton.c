@@ -1,6 +1,7 @@
 #include "main.h"
 #include "api/types.h"
-#include "api/print.h"
+#include "api/stdio.h"
+#include "api/nostd.h"
 #include "automaton.h"
 
 
