@@ -229,25 +229,25 @@ int _main(uint32_t task_id)
                 {
                     set_task_state(DFUUSB_STATE_DWNLOAD);
                     dfu_store_finished();
-		    /* Get the crypto header length here */
-		    if(sync_command_ack.data_size != 1){
-			 /* Wrong size */
-			 printf("Error: error during MAGIC_DFU_HEADER_VALID IPC with dfusmart ...\n");
-                   	 dfu_leave_session_with_error(ERRFILE);
-                	 set_task_state(DFUUSB_STATE_IDLE);
-		    }
-		    else{
-			crypto_chunk_size = sync_command_ack.data.u16[0];
+                    /* Get the crypto header length here */
+                    if(sync_command_ack.data_size != 1){
+                        /* Wrong size */
+                        printf("Error: error during MAGIC_DFU_HEADER_VALID IPC with dfusmart ...\n");
+                        dfu_leave_session_with_error(ERRFILE);
+                        set_task_state(DFUUSB_STATE_IDLE);
+                    }
+                    else{
+                        crypto_chunk_size = sync_command_ack.data.u16[0];
 #if DFU_USB_DEBUG
-			printf("Received %d as crypto chunk size from dfusmart!\n", crypto_chunk_size);
+                        printf("Received %d as crypto chunk size from dfusmart!\n", crypto_chunk_size);
 #endif
-			/* Sanity check */
-			if(dfu_crypto_chunk_size_sanity_check(dfu_usb_chunk_size, crypto_chunk_size)){
-  			  printf("Error: crypto chunk size %d is not a multiple of DFU chunk size %d\n", crypto_chunk_size, dfu_usb_chunk_size);
-                   	  dfu_leave_session_with_error(ERRFILE);
-                	  set_task_state(DFUUSB_STATE_IDLE);
-			}
-		    }
+                        /* Sanity check */
+                        if(dfu_crypto_chunk_size_sanity_check(dfu_usb_chunk_size, crypto_chunk_size)){
+                            printf("Error: crypto chunk size %d is not a multiple of DFU chunk size %d\n", crypto_chunk_size, dfu_usb_chunk_size);
+                            dfu_leave_session_with_error(ERRFILE);
+                            set_task_state(DFUUSB_STATE_IDLE);
+                        }
+                    }
                     break;
                 }
                 case MAGIC_DFU_HEADER_INVALID:
