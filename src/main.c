@@ -190,7 +190,7 @@ int _main(uint32_t task_id)
      * End of init sequence, let's initialize devices
      *******************************************/
     dfu_usb_chunk_size = USB_BUF_SIZE;
-    dfu_init(dfu_handler_write, dfu_handler_read, dfu_handler_eof, (uint8_t**)&usb_buf, USB_BUF_SIZE);
+    dfu_init((uint8_t**)&usb_buf, USB_BUF_SIZE);
 
 
     /*******************************************

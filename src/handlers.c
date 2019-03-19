@@ -28,6 +28,10 @@ static volatile uint16_t current_crypto_block_num = 1;
 
 static volatile bool is_last_block = false;
 
+/***********************************************************
+ * DFU header and application level protocol implementation
+ **********************************************************/
+
 /* Sanity check that we are asked for proper pseudo-sequential crypto blocks.
  */
 static int dnload_transfers_sanity_check(uint32_t curr_block_index, uint16_t curr_transfer_size){
@@ -140,7 +144,14 @@ bool first_chunk_received(void)
 }
 
 
-uint8_t dfu_handler_write(uint8_t ** volatile data,
+/***********************************************************
+ * DFU API backend access implementation
+ * INFO: these functions are required by libDFU to access
+ * storage backend (read, write, eof info). Their absence
+ * will lead to link error (missing symbol).
+ **********************************************************/
+
+uint8_t dfu_backend_write(uint8_t ** volatile data,
                           const uint16_t      data_size,
                           uint16_t            blocknum)
 {
@@ -265,7 +276,7 @@ uint8_t dfu_handler_write(uint8_t ** volatile data,
 
 uint32_t flash_block = 0;
 
-uint8_t dfu_handler_read(uint8_t *data, uint16_t data_size)
+uint8_t dfu_backend_read(uint8_t *data, uint16_t data_size)
 {
     struct sync_command_data sync_command_rw;
 #if DFU_USB_DEBUG
@@ -286,7 +297,7 @@ uint8_t dfu_handler_read(uint8_t *data, uint16_t data_size)
     return 0;
 }
 
-void dfu_handler_eof(void)
+void dfu_backend_eof(void)
 {
     struct sync_command sync_command;
 #if DFU_USB_DEBUG
