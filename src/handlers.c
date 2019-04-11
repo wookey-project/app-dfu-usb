@@ -120,15 +120,6 @@ static volatile bool header_full = false;
 
 static volatile uint32_t bytes_received = 0;
 
-/* [RB] FIXME: for now the panic is a simple while(1)
- * since the USB task does not have the ability to reset
- * the platform ...
- */
-static inline void panic(void){
-    printf("Panic!\n");
-    while(1){};
-}
-
 bool first_chunk_received(void)
 {
     /* cryptographic chunks must be at least of the same size
@@ -144,10 +135,17 @@ bool first_chunk_received(void)
     firmware_parse_header(dfu_header, DFU_HEADER_LEN, 0, &header, NULL);
     /* Sanity check on the chunk size */
     if(header.chunksize > DFU_MAX_CHUNK_LEN){
+
+        struct sync_command_data sync_command;
 #if DFU_USB_DEBUG
         printf("Max chunk size %d exceeds limit %d!\n", header.chunksize, DFU_MAX_CHUNK_LEN);
 #endif
-        panic();
+        /* corrupted header received, response through reset request to security monitor */
+        sync_command.magic = MAGIC_REBOOT_REQUEST;
+        sync_command.state = SYNC_WAIT;
+        sys_ipc(IPC_SEND_SYNC, get_dfucrypto_id(),
+                    sizeof(struct sync_command),
+                    (char*)&sync_command);
     }
     if (bytes_received >= header.chunksize) {
 #if DFU_USB_DEBUG
@@ -325,7 +323,7 @@ void dfu_backend_eof(void)
 #if DFU_USB_DEBUG
        printf("Error: dfu_backend_eof while not in DFUUSB_STATE_DWNLOAD \n");
 #endif
-       return; 
+       return;
     }
 
 
