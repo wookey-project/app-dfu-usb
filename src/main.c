@@ -253,7 +253,7 @@ int _main(uint32_t task_id)
                 case MAGIC_DFU_HEADER_INVALID:
                 {
                     /* error !*/
-                    printf("Error ! Invalid header ! refusing to continue update\n");
+                    printf("Error! Invalid header! refusing to continue update\n");
                     if (sync_command_ack.state == SYNC_BADFILE) {
                         dfu_store_finished();
                         dfu_leave_session_with_error(ERRFILE);

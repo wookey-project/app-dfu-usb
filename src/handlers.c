@@ -11,6 +11,8 @@
 
 #define DFU_HEADER_LEN 256
 
+#define DFU_MAX_CHUNK_LEN 65536
+
 #define DFU_USB_DEBUG 0
 
 extern volatile uint16_t crypto_chunk_size;
@@ -118,6 +120,15 @@ static volatile bool header_full = false;
 
 static volatile uint32_t bytes_received = 0;
 
+/* [RB] FIXME: for now the panic is a simple while(1)
+ * since the USB task does not have the ability to reset
+ * the platform ...
+ */
+static inline void panic(void){
+    printf("Panic!\n");
+    while(1){};
+}
+
 bool first_chunk_received(void)
 {
     /* cryptographic chunks must be at least of the same size
@@ -131,14 +142,21 @@ bool first_chunk_received(void)
     }
     firmware_header_t header;
     firmware_parse_header(dfu_header, DFU_HEADER_LEN, 0, &header, NULL);
+    /* Sanity check on the chunk size */
+    if(header.chunksize > DFU_MAX_CHUNK_LEN){
+#if DFU_USB_DEBUG
+        printf("Max chunk size %d exceeds limit %d!\n", header.chunksize, DFU_MAX_CHUNK_LEN);
+#endif
+        panic();
+    }
     if (bytes_received >= header.chunksize) {
 #if DFU_USB_DEBUG
-        printf("first crypto chunk received ! bytes read: %x\n", bytes_received);
+        printf("first crypto chunk received ! bytes read: %x / %x\n", bytes_received, header.chunksize);
 #endif
         return true;
     }
 #if DFU_USB_DEBUG
-    printf("first crypto chunk not received ! bytes read: %x\n", bytes_received);
+    printf("first crypto chunk not received ! bytes read: %x / %x\n", bytes_received, header.chunksize);
 #endif
     return false;
 }
@@ -279,6 +297,7 @@ uint32_t flash_block = 0;
 uint8_t dfu_backend_read(uint8_t *data, uint16_t data_size)
 {
     struct sync_command_data sync_command_rw;
+
 #if DFU_USB_DEBUG
     printf("reading data (@: %x) size: %d from flash\n", data, data_size);
 #endif
@@ -300,6 +319,16 @@ uint8_t dfu_backend_read(uint8_t *data, uint16_t data_size)
 void dfu_backend_eof(void)
 {
     struct sync_command sync_command;
+
+    /* Sanity check on the current state ... */
+    if(get_task_state() != DFUUSB_STATE_DWNLOAD){
+#if DFU_USB_DEBUG
+       printf("Error: dfu_backend_eof while not in DFUUSB_STATE_DWNLOAD \n");
+#endif
+       return; 
+    }
+
+
 #if DFU_USB_DEBUG
     printf("sendinf EOF to flash\n");
 #endif
