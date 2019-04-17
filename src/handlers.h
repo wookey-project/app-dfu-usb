@@ -1,7 +1,7 @@
 #ifndef DFUUSB_HANDLERS_H_
 #define DFUUSB_HANDLERS_H_
 
-#include "api/types.h"
+#include "libc/types.h"
 
 uint8_t dfu_handler_post_auth(void);
 
