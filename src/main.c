@@ -44,9 +44,7 @@ uint8_t get_dfucrypto_id(void)
  */
 int _main(uint32_t task_id)
 {
-//    const char * test = "hello, I'm usb\n";
     volatile e_syscall_ret ret = 0;
-//    uint32_t size = 256;
     uint8_t id;
 
     struct sync_command      ipc_sync_cmd;
@@ -143,7 +141,7 @@ int _main(uint32_t task_id)
 
     do {
         ret = sys_ipc(IPC_RECV_SYNC, &id, &size, (char*)&ipc_sync_cmd);
-    } while (ret == SYS_E_BUSY);
+    } while (ret != SYS_E_DONE);
 
     if (   ipc_sync_cmd.magic == MAGIC_TASK_STATE_CMD
         && ipc_sync_cmd.state == SYNC_READY) {
@@ -163,7 +161,7 @@ int _main(uint32_t task_id)
       } else {
           printf("sending sync ready to dfucrypto ok\n");
       }
-    } while (ret == SYS_E_BUSY);
+    } while (ret != SYS_E_DONE);
 
     // take some time to finish all sync ipc...
     sys_sleep(1000, SLEEP_MODE_INTERRUPTIBLE);
@@ -183,7 +181,7 @@ int _main(uint32_t task_id)
     printf("informing dfucrypto about DMA SHM...\n");
     do {
       ret = sys_ipc(IPC_SEND_SYNC, id_dfucrypto, sizeof(struct dmashm_info), (char*)&dmashm_info);
-    } while (ret == SYS_E_BUSY);
+    } while (ret != SYS_E_DONE);
     printf("Crypto informed.\n");
 
     /*******************************************
