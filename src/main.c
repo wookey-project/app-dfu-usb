@@ -21,6 +21,33 @@
 #define USB_BUF_SIZE 4096
 #define DFU_USB_DEBUG 0
 
+extern volatile bool dfu_reset_asked;
+
+static void main_thread_dfu_reset_device(void)
+{
+    e_syscall_ret ret;
+
+    dfu_reset_asked = false;
+
+    struct sync_command ipc_sync_cmd;
+    memset((void*)&ipc_sync_cmd, 0, sizeof(struct sync_command));
+
+    ipc_sync_cmd.magic = MAGIC_REBOOT_REQUEST;
+    ret = sys_ipc(IPC_SEND_SYNC, get_dfucrypto_id(), sizeof(struct sync_command), (char*)&ipc_sync_cmd);
+    if (ret != SYS_E_DONE) {
+# if USB_APP_DEBUG
+        printf("%s:%d Oops ! ret = %d\n", __func__, __LINE__, ret);
+#endif
+    }
+    while (1) {
+        /* voluntary freeze, in our case, as this reset order request
+         * reboot */
+        continue;
+    }
+    return;
+}
+
+
 /* NOTE: alignment due to DMA */
 __attribute__((aligned(4))) static uint8_t usb_buf[USB_BUF_SIZE] = { 0 };
 
@@ -276,6 +303,9 @@ int _main(uint32_t task_id)
 
         /* executing the DFU automaton */
         dfu_exec_automaton();
+	if(dfu_reset_asked == true){
+	    main_thread_dfu_reset_device();
+	}
     }
 
     /* should return to do_endoftask() */

@@ -33,29 +33,11 @@ static volatile bool is_last_block = false;
 /***********************************************************
  * DFU header and application level protocol implementation
  **********************************************************/
-
+volatile bool dfu_reset_asked = false;
 void dfu_reset_device(void)
 {
-    e_syscall_ret ret;
-
-    struct sync_command ipc_sync_cmd;
-    memset((void*)&ipc_sync_cmd, 0, sizeof(struct sync_command));
-
-    ipc_sync_cmd.magic = MAGIC_REBOOT_REQUEST;
-    ret = sys_ipc(IPC_SEND_SYNC, get_dfucrypto_id(), sizeof(struct sync_command), (char*)&ipc_sync_cmd);
-    if (ret != SYS_E_DONE) {
-# if USB_APP_DEBUG
-        printf("%s:%d Oops ! ret = %d\n", __func__, __LINE__, ret);
-#endif
-    }
-    while (1) {
-        /* voluntary freeze, in our case, as this reset order request
-         * reboot */
-        continue;
-    }
-    return;
+	dfu_reset_asked = true;
 }
-
 
 /* Sanity check that we are asked for proper pseudo-sequential crypto blocks.
  */
