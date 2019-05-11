@@ -61,7 +61,7 @@ static int dnload_transfers_sanity_check(uint32_t curr_block_index, uint16_t cur
 		is_last_block = true;
 	}
 	/* Check that we are asked to decrypt a dfu block inside a crypto block where we have started a decrypt session ... */
-	if(curr_block_offset % (uint32_t)crypto_chunk_size == 0){
+	if((curr_block_offset % (uint32_t)crypto_chunk_size) == 0){
 		current_crypto_block_num = curr_block_offset / crypto_chunk_size;
 	}
 	else{
@@ -98,8 +98,8 @@ static inline void dfu_init_header_authentication(void)
         /* copying at most 32 bytes in the IPC structure */
         memcpy(sync_command_rw.data.u8,
                 &dfu_header[offset],
-                residual < 32 ? residual : 32);
-        sync_command_rw.data_size = residual < 32 ? residual : 32;
+                (residual < 32) ? residual : 32);
+        sync_command_rw.data_size = (residual < 32) ? residual : 32;
 
         /* sending the IPC */
         sys_ipc(IPC_SEND_SYNC, get_dfucrypto_id(),
@@ -107,7 +107,7 @@ static inline void dfu_init_header_authentication(void)
                 (char*)&sync_command_rw);
 
         /* updating the current buffer offset */
-        offset += (residual < 32 ? residual : 32);
+        offset += ((residual < 32) ? residual : 32);
     } while (offset < DFU_HEADER_LEN);
 
     /* finishing with a ZLP IPC to smart, in order to inform it that the
@@ -237,11 +237,11 @@ uint8_t dfu_backend_write(uint8_t ** volatile data,
              * This state is reached only when transfer size is smaller than
              * DFU header buffer size and require multiple chunk reads
              */
-            if (data_size >= DFU_HEADER_LEN - (current_header_offset)) {
+            if (data_size >= (DFU_HEADER_LEN - (current_header_offset))) {
                 /* enough bytes received to fullfill the header */
                 if (!header_full) {
                     memcpy(&dfu_header[current_header_offset], (uint8_t*)data, DFU_HEADER_LEN - current_header_offset);
-                    current_header_offset += DFU_HEADER_LEN - current_header_offset;
+                    current_header_offset += (DFU_HEADER_LEN - current_header_offset);
                     header_full = true;
                     dfu_store_finished();
                 }
