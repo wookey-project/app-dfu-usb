@@ -11,6 +11,8 @@ config APP_DFUUSB
   ---help---
     Say y if you want to embbed DFUUSB custom application.
 
+if APP_DFUUSB
+
 config APP_DFUUSB_FW
   bool "Dfuusb App for firmware mode"
   depends on APP_DFUUSB
@@ -181,5 +183,7 @@ endmenu
 
 
 endmenu
+
+endif
 
 endmenu
