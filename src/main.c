@@ -10,18 +10,38 @@
 #include "libc/nostd.h"
 #include "libc/string.h"
 #include "wookey_ipc.h"
-#include "usb.h"
+#include "libusbctrl.h"
 #include "dfu.h"
 #include "handlers.h"
 #include "main.h"
-#include "usb_control.h"
 #include "libc/malloc.h"
+#include "generated/devlist.h"
 
 
 #define USB_BUF_SIZE 4096
 #define DFU_USB_DEBUG 0
 
 extern volatile bool dfu_reset_asked;
+
+/* libusbctrl specific triggers and contexts */
+volatile usbctrl_context_t ctx = { 0 };
+
+volatile bool reset_requested = false;
+
+void usbctrl_reset_received(void) {
+    reset_requested = true;
+}
+
+static volatile bool conf_set = false;
+
+void usbctrl_configuration_set(void)
+{
+    conf_set = true;
+}
+
+
+/**/
+
 
 static void main_thread_dfu_reset_device(void)
 {
@@ -84,9 +104,14 @@ int _main(uint32_t task_id)
     ret = sys_init(INIT_GETTASKID, "dfucrypto", &id_dfucrypto);
     printf("dfucrypto is task %x !\n", id_dfucrypto);
 
+    /* initialize USB Control plane */
+    ctx.dev_id = USB_OTG_HS_ID;
+    usbctrl_declare(&ctx);
+    usbctrl_initialize(&ctx);
 
     /* early init DFU stack */
-    dfu_early_init();
+    dfu_declare((usbctrl_context_t*)&ctx);
+
 
     /*********************************************
      * Declaring DMA Shared Memory with Crypto
@@ -120,6 +145,8 @@ int _main(uint32_t task_id)
      *******************************************/
 
     ret = sys_init(INIT_DONE);
+
+
     printf("sys_init DONE returns %x !\n", ret);
 
 
@@ -214,6 +241,10 @@ int _main(uint32_t task_id)
     /*******************************************
      * End of init sequence, let's initialize devices
      *******************************************/
+
+    /* Start USB device */
+    usbctrl_start_device(&ctx);
+
     dfu_usb_chunk_size = USB_BUF_SIZE;
     dfu_init((uint8_t**)&usb_buf, USB_BUF_SIZE);
 
@@ -231,82 +262,90 @@ int _main(uint32_t task_id)
     /* end of initialization, starting main loop */
     set_task_state(DFUUSB_STATE_IDLE);
 
-    while (1) {
+    do {
+        reset_requested = false;
+        dfu_reinit();
+        /* wait for SetConfiguration */
+        while (!conf_set) {
+            aprintf_flush();
+        }
+        printf("Set configuration received\n");
         /* detecting end of store (if a previous store request has been
          * executed by the store handler. This is an asyncrhonous end of
          * store management
          */
-
-        if ((sys_ipc(IPC_RECV_ASYNC, &id, &size, (char*)&sync_command_ack)) == SYS_E_DONE) {
-            switch (sync_command_ack.magic) {
-                case MAGIC_DATA_WR_DMA_ACK:
-                {
-                    dfu_store_finished();
-                    break;
-                }
-                case MAGIC_DATA_RD_DMA_ACK:
-                {
-                    uint16_t bytes_read = sync_command_ack.data.u16[0];
-                    dfu_load_finished(bytes_read);
-                    break;
-                }
-                case MAGIC_DFU_HEADER_VALID:
-                {
-                    set_task_state(DFUUSB_STATE_DWNLOAD);
-                    dfu_store_finished();
-                    /* Get the crypto header length here */
-                    if(sync_command_ack.data_size != 1){
-                        /* Wrong size */
-                        printf("Error: error during MAGIC_DFU_HEADER_VALID IPC with dfusmart ...\n");
-                        dfu_leave_session_with_error(ERRFILE);
-                        set_task_state(DFUUSB_STATE_IDLE);
-                    }
-                    else{
-                        crypto_chunk_size = sync_command_ack.data.u16[0];
-#if DFU_USB_DEBUG
-                        printf("Received %d as crypto chunk size from dfusmart!\n", crypto_chunk_size);
-#endif
-                        /* Sanity check */
-                        if(dfu_crypto_chunk_size_sanity_check(dfu_usb_chunk_size, crypto_chunk_size)){
-                            printf("Error: crypto chunk size %d is not a multiple of DFU chunk size %d\n", crypto_chunk_size, dfu_usb_chunk_size);
-                            dfu_leave_session_with_error(ERRFILE);
-                            set_task_state(DFUUSB_STATE_IDLE);
+        while (!reset_requested) {
+            if ((sys_ipc(IPC_RECV_ASYNC, &id, &size, (char*)&sync_command_ack)) == SYS_E_DONE) {
+                switch (sync_command_ack.magic) {
+                    case MAGIC_DATA_WR_DMA_ACK:
+                        {
+                            dfu_store_finished();
+                            break;
                         }
-                    }
-                    break;
+                    case MAGIC_DATA_RD_DMA_ACK:
+                        {
+                            uint16_t bytes_read = sync_command_ack.data.u16[0];
+                            dfu_load_finished(bytes_read);
+                            break;
+                        }
+                    case MAGIC_DFU_HEADER_VALID:
+                        {
+                            set_task_state(DFUUSB_STATE_DWNLOAD);
+                            dfu_store_finished();
+                            /* Get the crypto header length here */
+                            if(sync_command_ack.data_size != 1){
+                                /* Wrong size */
+                                printf("Error: error during MAGIC_DFU_HEADER_VALID IPC with dfusmart ...\n");
+                                dfu_leave_session_with_error(ERRFILE);
+                                set_task_state(DFUUSB_STATE_IDLE);
+                            }
+                            else{
+                                crypto_chunk_size = sync_command_ack.data.u16[0];
+#if DFU_USB_DEBUG
+                                printf("Received %d as crypto chunk size from dfusmart!\n", crypto_chunk_size);
+#endif
+                                /* Sanity check */
+                                if(dfu_crypto_chunk_size_sanity_check(dfu_usb_chunk_size, crypto_chunk_size)){
+                                    printf("Error: crypto chunk size %d is not a multiple of DFU chunk size %d\n", crypto_chunk_size, dfu_usb_chunk_size);
+                                    dfu_leave_session_with_error(ERRFILE);
+                                    set_task_state(DFUUSB_STATE_IDLE);
+                                }
+                            }
+                            break;
+                        }
+                    case MAGIC_DFU_HEADER_INVALID:
+                        {
+                            /* error !*/
+                            printf("Error! Invalid header! refusing to continue update\n");
+                            if (sync_command_ack.state == SYNC_BADFILE) {
+                                dfu_store_finished();
+                                dfu_leave_session_with_error(ERRFILE);
+                                set_task_state(DFUUSB_STATE_IDLE);
+                            } else {
+                                dfu_store_finished();
+                                dfu_leave_session_with_error(ERRFILE);
+                                set_task_state(DFUUSB_STATE_IDLE);
+                            }
+                            break;
+                        }
+                    default:
+                        {
+                            printf("Error! unknown IPC magic received: %x\n", sync_command_ack.magic);
+                            set_task_state(DFUUSB_STATE_ERROR);
+                            break;
+                        }
                 }
-                case MAGIC_DFU_HEADER_INVALID:
-                {
-                    /* error !*/
-                    printf("Error! Invalid header! refusing to continue update\n");
-                    if (sync_command_ack.state == SYNC_BADFILE) {
-                        dfu_store_finished();
-                        dfu_leave_session_with_error(ERRFILE);
-                        set_task_state(DFUUSB_STATE_IDLE);
-                    } else {
-                        dfu_store_finished();
-                        dfu_leave_session_with_error(ERRFILE);
-                        set_task_state(DFUUSB_STATE_IDLE);
-                    }
-                    break;
-                }
-                default:
-                {
-                    printf("Error! unknown IPC magic received: %x\n", sync_command_ack.magic);
-                    set_task_state(DFUUSB_STATE_ERROR);
-                    break;
-                }
+            } else {
+                sys_sleep(10, SLEEP_MODE_INTERRUPTIBLE);
             }
-        } else {
-            sys_sleep(10, SLEEP_MODE_INTERRUPTIBLE);
-        }
 
-        /* executing the DFU automaton */
-        dfu_exec_automaton();
-	if(dfu_reset_asked == true){
-	    main_thread_dfu_reset_device();
-	}
-    }
+            /* executing the DFU automaton */
+            dfu_exec_automaton();
+            if(dfu_reset_asked == true){
+                main_thread_dfu_reset_device();
+            }
+        }
+    } while (1);
 
     /* should return to do_endoftask() */
     return 0;

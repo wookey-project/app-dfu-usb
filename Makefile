@@ -38,7 +38,7 @@ CFLAGS += -Isrc/ -MMD -MP
 # linker options to add the layout file
 LDFLAGS += $(EXTRA_LDFLAGS) -L$(APP_BUILD_DIR)
 # project's library you whish to use...
-LD_LIBS += -ldfu -lusb -lfirmware -lstd
+LD_LIBS += -Wl,--start-group -Wl,-lusbotghs -Wl,-lusbctrl -Wl,-ldfu -Wl,--end-group -Wl,-lfirmware -Wl,-lstd
 
 ifeq (y,$(CONFIG_STD_DRBG))
 LD_LIBS += -lhmac -lsign
@@ -76,6 +76,7 @@ TODEL_DISTCLEAN += $(APP_BUILD_DIR)
 ## library dependencies
 LIBDEP := $(BUILD_DIR)/libs/libdfu/libdfu.a \
 		  $(BUILD_DIR)/libs/libstd/libstd.a \
+		  $(BUILD_DIR)/libs/libusbctrl/libusbctrl.a \
 		  $(BUILD_DIR)/libs/libfirmware/libfirmware.a
 
 
@@ -86,7 +87,7 @@ $(LIBDEP):
 
 
 # drivers dependencies
-SOCDRVDEP := $(BUILD_DIR)/drivers/libusb/libusb.a
+SOCDRVDEP := $(BUILD_DIR)/drivers/libusbotghs/libusbotghs.a
 
 socdrvdep: $(SOCDRVDEP)
 
