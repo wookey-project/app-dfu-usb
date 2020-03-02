@@ -38,10 +38,15 @@ CFLAGS += -Isrc/ -MMD -MP
 # linker options to add the layout file
 LDFLAGS += $(EXTRA_LDFLAGS) -L$(APP_BUILD_DIR)
 
-ifdef $(CONFIG_USR_DRV_USB_FS)
+ifeq ($(CONFIG_USR_DRV_USB_FS),y)
 BACKEND_DRV=usbotgfs
 else
+ifeq ($(CONFIG_USR_DRV_USB_HS),y)
 BACKEND_DRV=usbotghs
+else
+# FIXME: to be replaced by effective erroring
+BACKEND_DRV=
+endif
 endif
 
 # project's library you whish to use...
@@ -140,6 +145,7 @@ show:
 	@echo "\t\tDEP\t=> " $(DEP)
 	@echo
 	@echo "\t\tCFG\t=> " $(CFLAGS)
+	@echo "\t\tusbmode   => fs:" $(CONFIG_USR_DRV_USB_FS) " hs:" $(CONFIG_USR_DRV_USB_HS)
 
 
 # all (default) build the app
