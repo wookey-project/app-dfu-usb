@@ -37,8 +37,15 @@ CFLAGS += -Isrc/ -MMD -MP
 
 # linker options to add the layout file
 LDFLAGS += $(EXTRA_LDFLAGS) -L$(APP_BUILD_DIR)
+
+ifdef $(CONFIG_USR_DRV_USB_FS)
+BACKEND_DRV=usbotgfs
+else
+BACKEND_DRV=usbotghs
+endif
+
 # project's library you whish to use...
-LD_LIBS += -Wl,--start-group -Wl,-lusbotghs -Wl,-lusbctrl -Wl,-ldfu -Wl,--end-group -Wl,-lfirmware -Wl,-lstd
+LD_LIBS += -Wl,--start-group -Wl,-l$(BACKEND_DRV) -Wl,-lusbctrl -Wl,-ldfu -Wl,--end-group -Wl,-lfirmware -Wl,-lstd
 
 ifeq (y,$(CONFIG_STD_DRBG))
 LD_LIBS += -lhmac -lsign
@@ -87,7 +94,13 @@ $(LIBDEP):
 
 
 # drivers dependencies
+ifdef $(CONFIG_USR_DRV_USB_FS)
+SOCDRVDEP := $(BUILD_DIR)/drivers/libusbotgfs/libusbotgfs.a
+else
 SOCDRVDEP := $(BUILD_DIR)/drivers/libusbotghs/libusbotghs.a
+endif
+
+
 
 socdrvdep: $(SOCDRVDEP)
 
