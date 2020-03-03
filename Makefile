@@ -38,10 +38,10 @@ CFLAGS += -Isrc/ -MMD -MP
 # linker options to add the layout file
 LDFLAGS += $(EXTRA_LDFLAGS) -L$(APP_BUILD_DIR)
 
-ifeq ($(CONFIG_USR_DRV_USB_FS),y)
+ifeq ($(CONFIG_APP_DFUUSB_USR_DRV_USB_FS),y)
 BACKEND_DRV=usbotgfs
 else
-ifeq ($(CONFIG_USR_DRV_USB_HS),y)
+ifeq ($(CONFIG_APP_DFUUSB_USR_DRV_USB_HS),y)
 BACKEND_DRV=usbotghs
 else
 # FIXME: to be replaced by effective erroring
@@ -99,7 +99,7 @@ $(LIBDEP):
 
 
 # drivers dependencies
-ifdef $(CONFIG_USR_DRV_USB_FS)
+ifdef $(CONFIG_APP_DFUUSB_USR_DRV_USB_FS)
 SOCDRVDEP := $(BUILD_DIR)/drivers/libusbotgfs/libusbotgfs.a
 else
 SOCDRVDEP := $(BUILD_DIR)/drivers/libusbotghs/libusbotghs.a
