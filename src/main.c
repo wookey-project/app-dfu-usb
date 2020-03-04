@@ -24,9 +24,10 @@
 extern volatile bool dfu_reset_asked;
 
 /* libusbctrl specific triggers and contexts */
-volatile usbctrl_context_t ctx = { 0 };
 
 volatile bool reset_requested = false;
+
+uint32_t usbxdci_handler;
 
 void usbctrl_reset_received(void) {
     reset_requested = true;
@@ -105,12 +106,17 @@ int _main(uint32_t task_id)
     printf("dfucrypto is task %x !\n", id_dfucrypto);
 
     /* initialize USB Control plane */
-    ctx.dev_id = USB_OTG_HS_ID;
-    usbctrl_declare(&ctx);
-    usbctrl_initialize(&ctx);
+#if CONFIG_APP_DFUUSB_USR_DRV_USB_HS
+    usbctrl_declare(USB_OTG_HS_ID, &usbxdci_handler);
+#elif CONFIG_APP_DFUUSB_USR_DRV_USB_FS
+    usbctrl_declare(USB_OTG_FS_ID, &usbxdci_handler);
+#else
+# error "Unsupported USB driver backend"
+#endif
+    usbctrl_initialize(usbxdci_handler);
 
     /* early init DFU stack */
-    dfu_declare((usbctrl_context_t*)&ctx);
+    dfu_declare(usbxdci_handler);
 
 
     /*********************************************
@@ -243,7 +249,7 @@ int _main(uint32_t task_id)
      *******************************************/
 
     /* Start USB device */
-    usbctrl_start_device(&ctx);
+    usbctrl_start_device(usbxdci_handler);
 
     dfu_usb_chunk_size = USB_BUF_SIZE;
     dfu_init((uint8_t**)&usb_buf, USB_BUF_SIZE);
