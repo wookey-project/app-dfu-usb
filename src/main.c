@@ -248,12 +248,11 @@ int _main(uint32_t task_id)
      * End of init sequence, let's initialize devices
      *******************************************/
 
-    /* Start USB device */
-    usbctrl_start_device(usbxdci_handler);
-
     dfu_usb_chunk_size = USB_BUF_SIZE;
     dfu_init((uint8_t**)&usb_buf, USB_BUF_SIZE);
 
+    /* Start USB device */
+    usbctrl_start_device(usbxdci_handler);
 
     /*******************************************
      * Starting USB listener
