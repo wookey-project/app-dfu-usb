@@ -35,7 +35,8 @@ config APP_DFUUSB_HEAPSIZE
   depends on APP_DFUUSB
   default 1024
   ---help---
-    specify the requested heap size in bytes.
+    specify the requested heap size in bytes. Only requested if dynamic memory
+    primitives are used (typically malloc())
 
 config APP_DFUUSB_STACKSIZE
   int "Stack size"
