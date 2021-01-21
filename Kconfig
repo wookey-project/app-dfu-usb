@@ -7,7 +7,6 @@ config APP_DFUUSB
   select USR_LIB_WOOKEY
   select USR_LIB_DFU
   select USR_LIB_FIRMWARE
-  select USR_DRV_USB
   ---help---
     Say y if you want to embbed DFUUSB custom application.
 
@@ -57,6 +56,24 @@ config APP_DFUUSB_PRIO
     - Tasks of same priority are executed respecting a Round-Robin scheduling
     When using priority and RMA scheduling, please take care to yield()
     as much as possible to avoid deny of service to lower priority tasks
+
+choice
+  prompt "USB backend driver choice"
+  config APP_DFUUSB_USR_DRV_USB_HS 
+     bool "use high speed backend driver"
+     select USR_DRV_USBOTGHS
+     select LIB_USBCTRL
+     ---help---
+       Use High speed backend driver for USB 2.0 performance level support
+       (upto theorical 480Mb/s)
+  config APP_DFUUSB_USR_DRV_USB_FS 
+     bool "use full speed backend driver"
+     select USR_DRV_USBOTGFS
+     select LIB_USBCTRL
+     ---help---
+        new dynamic, hotpluggable and multi-interfaces USB stack with runtime interface(s) registration
+endchoice
+
 
 
 menu "Permissions"

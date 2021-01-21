@@ -37,8 +37,20 @@ CFLAGS += -Isrc/ -MMD -MP
 
 # linker options to add the layout file
 LDFLAGS += $(EXTRA_LDFLAGS) -L$(APP_BUILD_DIR)
+
+ifeq ($(CONFIG_APP_DFUUSB_USR_DRV_USB_FS),y)
+BACKEND_DRV=usbotgfs
+else
+ifeq ($(CONFIG_APP_DFUUSB_USR_DRV_USB_HS),y)
+BACKEND_DRV=usbotghs
+else
+# FIXME: to be replaced by effective erroring
+BACKEND_DRV=
+endif
+endif
+
 # project's library you whish to use...
-LD_LIBS += -ldfu -lusb -lfirmware -lstd
+LD_LIBS += -Wl,--start-group -Wl,-l$(BACKEND_DRV) -Wl,-lusbctrl -Wl,-ldfu -Wl,--end-group -Wl,-lfirmware -Wl,-lstd
 
 ifeq (y,$(CONFIG_STD_DRBG))
 LD_LIBS += -lhmac -lsign
@@ -76,6 +88,7 @@ TODEL_DISTCLEAN += $(APP_BUILD_DIR)
 ## library dependencies
 LIBDEP := $(BUILD_DIR)/libs/libdfu/libdfu.a \
 		  $(BUILD_DIR)/libs/libstd/libstd.a \
+		  $(BUILD_DIR)/libs/libusbctrl/libusbctrl.a \
 		  $(BUILD_DIR)/libs/libfirmware/libfirmware.a
 
 
@@ -86,7 +99,13 @@ $(LIBDEP):
 
 
 # drivers dependencies
-SOCDRVDEP := $(BUILD_DIR)/drivers/libusb/libusb.a
+ifdef $(CONFIG_APP_DFUUSB_USR_DRV_USB_FS)
+SOCDRVDEP := $(BUILD_DIR)/drivers/libusbotgfs/libusbotgfs.a
+else
+SOCDRVDEP := $(BUILD_DIR)/drivers/libusbotghs/libusbotghs.a
+endif
+
+
 
 socdrvdep: $(SOCDRVDEP)
 
@@ -126,6 +145,7 @@ show:
 	@echo "\t\tDEP\t=> " $(DEP)
 	@echo
 	@echo "\t\tCFG\t=> " $(CFLAGS)
+	@echo "\t\tusbmode   => fs:" $(CONFIG_USR_DRV_USB_FS) " hs:" $(CONFIG_USR_DRV_USB_HS)
 
 
 # all (default) build the app
