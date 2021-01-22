@@ -101,7 +101,7 @@ $(LIBDEP):
 # drivers dependencies
 ifdef $(CONFIG_APP_DFUUSB_USR_DRV_USB_FS)
 SOCDRVDEP := $(BUILD_DIR)/drivers/libusbotgfs/libusbotgfs.a
-else
+else ifdef $(CONFIG_APP_DFUUSB_USR_DRV_USB_HS)
 SOCDRVDEP := $(BUILD_DIR)/drivers/libusbotghs/libusbotghs.a
 endif
 
