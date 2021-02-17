@@ -172,7 +172,7 @@ bool first_chunk_received(void)
  * will lead to link error (missing symbol).
  **********************************************************/
 
-uint8_t dfu_backend_write(uint8_t ** volatile data,
+uint8_t dfu_backend_write(uint8_t * volatile data,
                           const uint16_t      data_size,
                           uint16_t            blocknum)
 {
@@ -206,7 +206,7 @@ uint8_t dfu_backend_write(uint8_t ** volatile data,
         {
             if (data_size >= DFU_HEADER_LEN) {
                 /* header has been sent in one time */
-                memcpy(dfu_header, (uint8_t*)data, DFU_HEADER_LEN);
+                memcpy(dfu_header, data, DFU_HEADER_LEN);
                 header_full = true;
                 /* asking smart for header authentication */
                 if (first_chunk_received()) {
@@ -219,7 +219,7 @@ uint8_t dfu_backend_write(uint8_t ** volatile data,
                 }
             } else {
                 /* header must be generated with multiple chunks */
-                memcpy(dfu_header, (uint8_t*)data, data_size);
+                memcpy(dfu_header, data, data_size);
                 current_header_offset += data_size;
                 set_task_state(DFUUSB_STATE_GETHEADER);
                 dfu_store_finished();
@@ -240,7 +240,7 @@ uint8_t dfu_backend_write(uint8_t ** volatile data,
             if (data_size >= (DFU_HEADER_LEN - (current_header_offset))) {
                 /* enough bytes received to fullfill the header */
                 if (!header_full) {
-                    memcpy(&dfu_header[current_header_offset], (uint8_t*)data, DFU_HEADER_LEN - current_header_offset);
+                    memcpy(&dfu_header[current_header_offset], data, DFU_HEADER_LEN - current_header_offset);
                     current_header_offset += (DFU_HEADER_LEN - current_header_offset);
                     header_full = true;
                     dfu_store_finished();
@@ -252,7 +252,7 @@ uint8_t dfu_backend_write(uint8_t ** volatile data,
                     dfu_store_finished();
                 }
             } else {
-                memcpy(&dfu_header[current_header_offset], (uint8_t*)data, data_size);
+                memcpy(&dfu_header[current_header_offset], data, data_size);
                 current_header_offset += data_size;
                 dfu_store_finished();
                 /* continuing during next call... */
