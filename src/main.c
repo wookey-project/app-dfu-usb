@@ -19,7 +19,7 @@
 
 
 #define USB_BUF_SIZE 4096
-#define DFU_USB_DEBUG 0
+#define DFU_USB_DEBUG 1
 
 extern volatile bool dfu_reset_asked;
 
@@ -249,7 +249,7 @@ int _main(uint32_t task_id)
      *******************************************/
 
     dfu_usb_chunk_size = USB_BUF_SIZE;
-    dfu_init((uint8_t**)&usb_buf, USB_BUF_SIZE);
+    dfu_init((uint8_t*)usb_buf, USB_BUF_SIZE);
 
     /* Start USB device */
     usbctrl_start_device(usbxdci_handler);
